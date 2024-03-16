@@ -11,7 +11,9 @@ from matplotlib import style
 import imutils 
 import dlib
 import time 
-import argparse 
+import argparse
+import pygame
+import webbrowser
 import cv2 
 from playsound import playsound
 from scipy.spatial import distance as dist
@@ -41,6 +43,21 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--shape_predictor", required = True, help = "path to dlib's facial landmark predictor")
 ap.add_argument("-r", "--picamera", type = int, default = -1, help = "whether raspberry pi camera shall be used or not")
 args = vars(ap.parse_args())
+
+
+map_counter = 0
+map_flag = 1
+flag= 0
+close_thresh = 0.3
+avg_EAR = 0
+web = 0
+pygame.mixer.init()
+alert = pygame.mixer.Sound(
+		'C:/Users/rohit/PycharmProjects/DDAS[1]/Driver-Drowsiness-Alert-System/focus.wav')
+alert2 = pygame.mixer.Sound(
+		'C:/Users/rohit/PycharmProjects/DDAS[1]/Driver-Drowsiness-Alert-System/take_a_break.wav')
+
+
 
 # Declare a constant which will work as the threshold for EAR value, below which it will be regared as a blink 
 EAR_THRESHOLD = 0.3
@@ -105,7 +122,8 @@ while True:
 		rightEAR = eye_aspect_ratio(rightEye)
 
 		# Take the average of both the EAR
-		EAR = (leftEAR + rightEAR) / 2.0
+		EAR = (leftEAR + rightEAR) / 1.8
+		eyeContourColor = (255, 255, 255)
 		#live datawrite in csv
 		ear_list.append(EAR)
 		#print(ear_list)
@@ -132,25 +150,42 @@ while True:
 
 			if FRAME_COUNT >= CONSECUTIVE_FRAMES: 
 				count_sleep += 1
+				map_counter+= 1
 				# Add the frame to the dataset ar a proof of drowsy driving
 				cv2.imwrite("dataset/frame_sleep%d.jpg" % count_sleep, frame)
-				playsound('sound files/alarm.mp3')
+				alert.play()
 				cv2.putText(frame, "DROWSINESS ALERT!", (270, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 		else: 
-			if FRAME_COUNT >= CONSECUTIVE_FRAMES: 
-				playsound('sound files/warning.mp3')
+			if FRAME_COUNT >= CONSECUTIVE_FRAMES:
+				alert.play()
 			FRAME_COUNT = 0
 		#cv2.putText(frame, "EAR: {:.2f}".format(EAR), (300, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
 		# Check if the person is yawning
 		if MAR > MAR_THRESHOLD:
 			count_yawn += 1
+			map_counter+=1
 			cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1) 
 			cv2.putText(frame, "DROWSINESS ALERT!", (270, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 			# Add the frame to the dataset ar a proof of drowsy driving
 			cv2.imwrite("dataset/frame_yawn%d.jpg" % count_yawn, frame)
-			playsound('sound files/alarm.mp3')
-			playsound('sound files/warning_yawn.mp3')
+			alert2.play()
+
+		if (map_counter >= 8):
+			map_flag = 1
+			map_counter = 0
+			# ser = serial.Serial('COM4', 9600)
+			time.sleep(2)
+			# ser.write(b'B')
+			# ser.close()
+			alert2.play()
+			webbrowser.open("https://www.google.com/maps/search/hotels+or+motels+near+me")
+			web +=1
+			if web >= 2:
+				webbrowser.open("http://127.0.0.1:5000/", new=0)
+				exit()
+
+
 	#total data collection for plotting
 	for i in ear_list:
 		total_ear.append(i)
@@ -171,17 +206,18 @@ a = total_ear
 b=total_mar
 c = total_ts
 
-df = pd.DataFrame({"EAR" : a, "MAR":b,"TIME" : c})
-df.to_csv("op_webcam.csv", index=False)
-df=pd.read_csv("op_webcam.csv")
-
-df.plot(x='TIME',y=['EAR','MAR'])
-#plt.xticks(rotation=45, ha='right')
-
-plt.subplots_adjust(bottom=0.30)
-plt.title('EAR & MAR calculation over time of webcam')
-plt.ylabel('EAR & MAR')
-plt.gca().axes.get_xaxis().set_visible(False)
-plt.show()
-cv2.destroyAllWindows()
-vs.stop()
+# df = pd.DataFrame({"EAR" : a, "MAR":b,"TIME" : c})
+# df.to_csv("op_webcam.csv", index=False)
+# df=pd.read_csv("op_webcam.csv")
+#
+# df.plot(x='TIME',y=['EAR','MAR'])
+# #plt.xticks(rotation=45, ha='right')
+#
+# plt.subplots_adjust(bottom=0.30)
+# plt.title('EAR & MAR calculation over time of webcam')
+# plt.ylabel('EAR & MAR')
+# plt.gca().axes.get_xaxis().set_visible(False)
+# plt.show()
+# cv2.destroyAllWindows()
+# vs.stop()
+webbrowser.open("http://127.0.0.1:5000/",new=0)
